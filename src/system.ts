@@ -27,22 +27,15 @@ export function createNodeSystem(): System {
 
 class NodeSystem implements System {
   async exec(cmd: string, args: string[], options?: { cwd?: string }): Promise<ExecResult> {
-    const { spawn } = await import('node:child_process');
-    return new Promise((resolve, reject) => {
-      const child = spawn(cmd, args, {
-        cwd: options?.cwd,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        shell: process.platform === 'win32',
-      });
-      let stdout = '';
-      let stderr = '';
-      child.stdout!.on('data', (d: Buffer) => { stdout += d.toString(); });
-      child.stderr!.on('data', (d: Buffer) => { stderr += d.toString(); });
-      child.on('close', (code) => {
-        resolve({ exitCode: code ?? 1, stdout, stderr });
-      });
-      child.on('error', (err) => {
-        reject(err);
+    const { exec } = await import('node:child_process');
+    const command = [cmd, ...args].map(a => a.includes(' ') ? `"${a}"` : a).join(' ');
+    return new Promise((resolve) => {
+      exec(command, { cwd: options?.cwd }, (err, stdout, stderr) => {
+        resolve({
+          exitCode: err ? (err as NodeJS.ErrnoException).code === 'ENOENT' ? 127 : 1 : 0,
+          stdout,
+          stderr,
+        });
       });
     });
   }

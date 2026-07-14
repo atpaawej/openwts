@@ -17,6 +17,7 @@ import { runCommand } from './run.js';
 import { removeCommand } from './remove.js';
 import { pruneCommand } from './prune.js';
 import { installCommand } from './install.js';
+import { startCommand } from './start.js';
 
 export function loadCommands(): Map<string, Command> {
   const commands = new Map<string, Command>();
@@ -29,6 +30,7 @@ export function loadCommands(): Map<string, Command> {
   register(commands, removeCommand);
   register(commands, pruneCommand);
   register(commands, installCommand);
+  register(commands, startCommand);
 
   return commands;
 }

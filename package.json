@@ -1,6 +1,6 @@
 {
   "name": "openwts",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "description": "🌿 Isolated worktrees for opencode. Spin up, switch, run, and clean up git worktrees with zero friction.",
   "keywords": ["git", "worktree", "opencode", "cli", "productivity"],
   "homepage": "https://github.com/atpaawej/openwts",

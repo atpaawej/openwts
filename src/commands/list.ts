@@ -14,13 +14,14 @@ export const listCommand: Command = {
       return;
     }
 
-    const rows = worktrees.map(w => ({
+    const rows = await Promise.all(worktrees.map(async w => ({
       Name: w.name,
+      Managed: (await ctx.worktree.isManaged(w.name)) ? '✓' : '-',
       Branch: w.branch,
       Path: w.path.replace(ctx.system.cwd().replace(/\\/g, '/') + '/', ''),
       Dirty: w.dirty ? '⚠' : '✓',
       Current: w.isCurrent ? '◀' : '',
-    }));
+    })));
 
     ctx.output.table(rows);
   },

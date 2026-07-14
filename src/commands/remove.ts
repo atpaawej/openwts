@@ -13,6 +13,12 @@ export const removeCommand: Command = {
     const name = args.name;
     const force = args.force === 'true' || args.f === 'true';
 
+    // Warn if removing a non-openwts worktree
+    const isManaged = await ctx.worktree.isManaged(name);
+    if (!isManaged) {
+      ctx.output.warn(`"${name}" was not created by openwts`);
+    }
+
     // Safety check: warn about dirty/unpushed before removing
     const path = await ctx.worktree.getPath(name);
 
@@ -33,8 +39,6 @@ export const removeCommand: Command = {
     }
 
     if ((isDirty || hasUnpushed) && !force) {
-      // In a real implementation we'd prompt here
-      // For now, require --force for dirty/unpushed
       throw new OpenwtError(
         `"${name}" has pending changes`,
         'Commit, push, or stash first, or use --force',

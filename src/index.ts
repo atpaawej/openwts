@@ -27,8 +27,11 @@ export async function main(argv: string[]): Promise<number> {
 
   // Version
   if (argv[0] === '--version' || argv[0] === '-v') {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pkg = require('../../package.json');
+    const { readFileSync } = await import('node:fs');
+    const { dirname, join } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as { version: string };
     output.info(pkg.version);
     return 0;
   }
@@ -36,10 +39,51 @@ export async function main(argv: string[]): Promise<number> {
   const commandName = argv[0]!;
   const command = commands.get(commandName);
 
+  // Default verb routing: if argv[0] is not a known command, treat it
+  // as a worktree name and dispatch to the `start` (one-shot) command.
+  // This enables: `openwts feature-x` → create + open opencode.
   if (!command) {
-    output.error(`Unknown command: "${commandName}"`);
-    output.info(`Run "openwts --help" for available commands`);
-    return 1;
+    // Check if the first arg starts with -- (a flag, not a worktree name)
+    if (commandName.startsWith('-')) {
+      output.error(`Unknown flag: "${commandName}"`);
+      output.info(`Run "openwts --help" for available commands`);
+      return 1;
+    }
+    // Otherwise, treat it as the worktree name and route to `start`
+    const startCommand = commands.get('start');
+    if (!startCommand) {
+      output.error('Internal error: start command not found');
+      return 1;
+    }
+    // Reparse for the start command: name + any --flags
+    const startArgs = parseArgs(argv, startCommand.arguments);
+    if (!startArgs.ok) {
+      output.error(startArgs.error);
+      return 1;
+    }
+    const ctx: CommandContext = {
+      worktree,
+      system,
+      output,
+      commands,
+    };
+    try {
+      await startCommand.run(startArgs.args, ctx);
+      return 0;
+    } catch (e) {
+      if (e instanceof OpenwtError) {
+        output.error(e.message);
+        if (e.suggestion) {
+          output.info(`  Suggestion: ${e.suggestion}`);
+        }
+        return 1;
+      }
+      output.error(`Unexpected error: ${e instanceof Error ? e.message : String(e)}`);
+      if (e instanceof Error && e.stack) {
+        output.info(`\n${e.stack}`);
+      }
+      return 1;
+    }
   }
 
   // Parse positional args

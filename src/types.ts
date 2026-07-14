@@ -22,7 +22,7 @@ export interface ExecResult {
 }
 
 export interface ShellConfig {
-  type: 'bash' | 'zsh' | 'fish';
+  type: 'bash' | 'zsh' | 'fish' | 'powershell';
   configPath: string;
 }
 

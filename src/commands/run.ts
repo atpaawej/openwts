@@ -28,6 +28,9 @@ export const runCommand: Command = {
     const cmd = cmdArgs.length > 0 ? cmdArgs[0]! : 'opencode';
     const cmdRest = cmdArgs.length > 1 ? cmdArgs.slice(1) : [];
 
+    const noPrompt = args['no-prompt'] === 'true' || args.p === 'true';
+    const forceCleanup = args['clean'] === 'true' || args.c === 'true';
+
     // Set env vars so child processes know they're in a worktree
     const env: Record<string, string> = {
       ...process.env as Record<string, string>,
@@ -44,12 +47,26 @@ export const runCommand: Command = {
     });
 
     return new Promise((resolve, reject) => {
-      child.on('close', (code) => {
+      child.on('close', async (code) => {
         if (code !== 0 && code !== null) {
           reject(new OpenwtError(`Command exited with code ${code}`));
-        } else {
-          resolve();
+          return;
         }
+
+        // Post-exit cleanup for openwts-managed worktrees
+        try {
+          const removed = await ctx.worktree.cleanup(args.name, {
+            force: forceCleanup,
+            noPrompt,
+          });
+          if (removed) {
+            ctx.output.success(`Cleaned up worktree "${args.name}"`);
+          }
+        } catch {
+          // Cleanup is best-effort — don't fail the command for it
+        }
+
+        resolve();
       });
       child.on('error', (err) => {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') {

@@ -1,3 +1,13 @@
+/**
+ * install — cross-platform shell integration for openwts.
+ *
+ * Installs a shell wrapper function that intercepts the `switch` command
+ * and does a directory change (cd / Set-Location) instead of just
+ * printing the path.
+ *
+ * Supports: bash, zsh, fish, PowerShell (Windows)
+ */
+
 import type { Command } from './command.js';
 import { OpenwtError } from '../types.js';
 import type { ShellConfig } from '../types.js';
@@ -31,7 +41,12 @@ export const installCommand: Command = {
 
     ctx.output.success(`Shell integration installed`);
     ctx.output.info(`Config file: ${shell.configPath}`);
-    ctx.output.info(`Reload with: source ${shell.configPath}`);
+    ctx.output.info(`Reload with:`);
+    if (shell.type === 'powershell') {
+      ctx.output.info(`  . $PROFILE`);
+    } else {
+      ctx.output.info(`  source ${shell.configPath}`);
+    }
     ctx.output.info(`\nNow you can use: openwts switch <name>`);
   },
 };
@@ -48,6 +63,27 @@ function ${alias} --description "openwts — worktree manager for opencode"
         openwts $argv
     end
 end
+`;
+    case 'powershell':
+      return `
+function ${alias} {
+  param(
+    [Parameter(Position=0)]
+    [string] $Command,
+    [Parameter(ValueFromRemainingArguments=$true)]
+    [string[]] $Args
+  )
+
+  if ($Command -eq "switch") {
+    $path = & "openwts" $Command $Args
+    if ($LASTEXITCODE -eq 0 -and $path) {
+      Set-Location $path
+    }
+  } else {
+    $argsList = @($Command) + $Args
+    & "openwts" $argsList
+  }
+}
 `;
     default:
       // bash / zsh
@@ -68,6 +104,30 @@ async function detectShell(system: {
   homeDir: () => Promise<string>;
   exists: (path: string) => Promise<boolean>;
 }): Promise<ShellConfig> {
+  // Detect PowerShell on Windows
+  const isWindows = process.platform === 'win32';
+  if (isWindows || process.env.PSModulePath) {
+    // Check if we're running in PowerShell by looking at env vars
+    const psHome = process.env.PSModulePath || '';
+    if (psHome.includes('PowerShell') || psHome.includes('powershell') || isWindows) {
+      // PowerShell profile paths:
+      // CurrentUserCurrentHost: $HOME\Documents\WindowsPowerShell\Profile.ps1 (WindowsPowerShell)
+      //                        $HOME\Documents\PowerShell\Profile.ps1 (PowerShell 7)
+      const home = await system.homeDir();
+      const ps7Profile = `${home}/Documents/PowerShell/Microsoft.PowerShell_profile.ps1`;
+      const ps5Profile = `${home}/Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1`;
+
+      if (await system.exists(ps7Profile)) {
+        return { type: 'powershell', configPath: ps7Profile };
+      }
+      if (await system.exists(ps5Profile)) {
+        return { type: 'powershell', configPath: ps5Profile };
+      }
+      // Default to PowerShell 7 profile path (most common)
+      return { type: 'powershell', configPath: ps7Profile };
+    }
+  }
+
   // Try to detect from $SHELL
   const shellResult = await system.exec('echo', ['$SHELL']);
   const shellPath = shellResult.stdout.trim();
@@ -100,6 +160,6 @@ async function detectShell(system: {
 
   throw new OpenwtError(
     'Could not detect shell config file',
-    'Set $SHELL or run with --shell <zsh|bash|fish>',
+    'Set $SHELL or run with --shell <zsh|bash|fish|powershell>',
   );
 }

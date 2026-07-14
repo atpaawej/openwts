@@ -168,11 +168,14 @@ describe('Worktree', () => {
       // 3. status check → 1 exec
       // 4. unpushed check → 1 exec
       // 5. git worktree remove --force → 1 exec
+      // 6. getManifest → repoRoot → 1 exec
+      // 7. manifest.remove → writeFile (no exec)
       sys.addExecResponse({ stdout: '/repo\n' });         // 1. remove's repoRoot
       addListResponses(sys, PORCELAIN_3, 3);               // 2. getPath → list
       sys.addExecResponse({ stdout: '' });                  // 3. status check
       sys.addExecResponse({ stdout: '' });                  // 4. unpushed check
       sys.addExecResponse({ stdout: '' });                  // 5. worktree remove --force
+      sys.addExecResponse({ stdout: '/repo\n' });           // 6. manifest repoRoot
 
       const wt = createWorktree(sys);
       await wt.remove('feature-x', true);
@@ -205,12 +208,13 @@ describe('Worktree', () => {
       addListResponses(sys, PORCELAIN_3, 3);
 
       // Then removes 'feature-x' with force:
-      // remove's repoRoot + getPath(list) 5 + status + unpushed + remove = 9
+      // remove's repoRoot + getPath(list) 5 + status + unpushed + remove + manifest repoRoot = 10
       sys.addExecResponse({ stdout: '/repo\n' });         // remove's repoRoot
       addListResponses(sys, PORCELAIN_3, 3);               // getPath → list (5)
       sys.addExecResponse({ stdout: '' });                  // status check
       sys.addExecResponse({ stdout: '' });                  // unpushed check
       sys.addExecResponse({ stdout: '' });                  // worktree remove --force
+      sys.addExecResponse({ stdout: '/repo\n' });           // manifest repoRoot
 
       // Then removes 'bug-fix' with force: same pattern
       sys.addExecResponse({ stdout: '/repo\n' });         // remove's repoRoot
@@ -218,6 +222,7 @@ describe('Worktree', () => {
       sys.addExecResponse({ stdout: '' });                  // status check
       sys.addExecResponse({ stdout: '' });                  // unpushed check
       sys.addExecResponse({ stdout: '' });                  // worktree remove --force
+      sys.addExecResponse({ stdout: '/repo\n' });           // manifest repoRoot
 
       const wt = createWorktree(sys);
       await wt.prune(true);

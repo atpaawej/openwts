@@ -12,6 +12,8 @@
 import type { System } from './system.js';
 import type { WorktreeInfo } from './types.js';
 import { OpenwtError } from './types.js';
+import { createManifestManager, ManifestManager } from './manifest.js';
+import { getCurrentBranch, getDefaultBranch, getStatus } from './git.js';
 
 const WORKTREE_DIR = '.openwts/worktrees';
 
@@ -46,10 +48,32 @@ export interface Worktree {
 
   /** Get the repo root for the current directory */
   repoRoot(): Promise<string>;
+
+  /**
+   * Check if a worktree was created by openwts.
+   * Non-openwts worktrees are skipped by auto-cleanup.
+   */
+  isManaged(name: string): Promise<boolean>;
+
+  /**
+   * Clean up a worktree after use.
+   * - If clean: auto-remove
+   * - If dirty and interactive: prompt user
+   * - If dirty and non-interactive: leave it
+   * @param name Worktree name
+   * @param opts Options for cleanup
+   * @returns true if worktree was removed, false if kept
+   */
+  cleanup(name: string, opts?: { force?: boolean; noPrompt?: boolean }): Promise<boolean>;
 }
 
 class RealWorktree implements Worktree {
   constructor(private system: System) {}
+
+  private async getManifest(): Promise<ManifestManager> {
+    const root = await this.repoRoot();
+    return createManifestManager(this.system, root);
+  }
 
   async repoRoot(): Promise<string> {
     const result = await this.system.exec('git', ['rev-parse', '--show-toplevel']);
@@ -163,6 +187,10 @@ class RealWorktree implements Worktree {
       }
       throw new OpenwtError('Failed to create worktree', stderr.trim());
     }
+
+    // Record in manifest
+    const manifest = await this.getManifest();
+    await manifest.add(name, name, wtPath);
   }
 
   async remove(name: string, force?: boolean): Promise<void> {
@@ -208,6 +236,10 @@ class RealWorktree implements Worktree {
         );
       }
     }
+
+    // Clean up manifest entry
+    const manifest = await this.getManifest();
+    await manifest.remove(name);
   }
 
   async prune(force?: boolean): Promise<void> {
@@ -233,6 +265,45 @@ class RealWorktree implements Worktree {
     }
   }
 
+  // ─── Manifest-aware operations ──────────────────────────
+
+  async isManaged(name: string): Promise<boolean> {
+    const manifest = await this.getManifest();
+    return manifest.isManaged(name);
+  }
+
+  async cleanup(name: string, opts?: { force?: boolean; noPrompt?: boolean }): Promise<boolean> {
+    const root = await this.repoRoot();
+
+    // Only clean up worktrees that openwts created
+    if (!(await this.isManaged(name))) {
+      return false;
+    }
+
+    const path = await this.getPath(name);
+
+    // Check dirty + unpushed state
+    const status = await getStatus(this.system, path);
+
+    // Decide what to do
+    const { decideCleanup } = await import('./cleanup.js');
+    const action = decideCleanup(status.isDirty, status.hasUnpushed, opts);
+
+    // Non-interactive → leave it
+    if (action === 'keep') return false;
+
+    // Interactive: prompt user
+    if (action === 'prompt') {
+      const { askForCleanup } = await import('./cleanup.js');
+      const shouldRemove = await askForCleanup(name, status.isDirty, status.hasUnpushed);
+      if (!shouldRemove) return false;
+    }
+
+    // Remove
+    await this.remove(name, true);
+    return true;
+  }
+
   // ─── Private helpers ──────────────────────────────────────
 
   private parsePorcelain(output: string): Omit<WorktreeInfo, 'dirty' | 'isCurrent'>[] {
@@ -252,9 +323,11 @@ class RealWorktree implements Worktree {
           commit = line.slice(5).trim();
         } else if (line.startsWith('detached')) {
           branch = '(detached)';
+        } else if (line.startsWith('worktree ')) {
+          // In git porcelain format, each worktree starts with "worktree <path>"
+          path = line.slice(9).trim();
         } else {
-          // In git porcelain format, the first line of each block
-          // is the raw worktree path (no prefix keyword)
+          // Fallback: bare path line (older git versions, edge cases)
           path = line.trim();
         }
       }
@@ -269,29 +342,10 @@ class RealWorktree implements Worktree {
   }
 
   private async getCurrentBranch(cwd: string): Promise<string> {
-    const result = await this.system.exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd });
-    return result.stdout.trim();
+    return getCurrentBranch(this.system, cwd);
   }
 
   private async getDefaultBranch(cwd: string): Promise<string> {
-    // Try origin/HEAD first
-    const originResult = await this.system.exec(
-      'git', ['symbolic-ref', 'refs/remotes/origin/HEAD'], { cwd }
-    );
-    if (originResult.exitCode === 0) {
-      const ref = originResult.stdout.trim().replace('refs/remotes/origin/', '');
-      return ref;
-    }
-
-    // Try main, then master
-    for (const candidate of ['main', 'master']) {
-      const result = await this.system.exec(
-        'git', ['rev-parse', '--verify', candidate], { cwd }
-      );
-      if (result.exitCode === 0) return candidate;
-    }
-
-    // Fallback to current branch
-    return this.getCurrentBranch(cwd);
+    return getDefaultBranch(this.system, cwd);
   }
 }

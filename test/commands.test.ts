@@ -46,12 +46,16 @@ describe('create command', () => {
 
   it('creates a worktree and reports success', async () => {
     // create() exec calls: repoRoot + symbol-ref + rev-parse + worktree add = 4
+    // then getManifest → repoRoot + readFile (manifest doesn't exist → empty manifest) = 1
+    // then write manifest (no exec)
+    // getPath() → list(): repoRoot + porcelain + 2 status = 4
     sys.addExecResponse({ stdout: '/repo\n' });
     sys.addExecResponse({ stdout: 'refs/remotes/origin/main\n' });
     sys.addExecResponse({ stdout: 'abc123\n' });
     sys.addExecResponse({ stdout: '' });
+    sys.addExecResponse({ stdout: '/repo\n' });           // getManifest repoRoot
 
-    // getPath() → list(): repoRoot + porcelain + 2 status = 4
+    // getPath → list
     addListResponses(sys, 2);
 
     const worktree = createWorktree(sys);
@@ -120,22 +124,28 @@ describe('remove command', () => {
 
   it('removes a worktree with force flag', async () => {
     // remove command:
-    // 1. getPath(name) → list → repoRoot + porcelain + 2 status = 4
-    addListResponses(sys, 2);
-    // 2. status check (via ctx.system.exec)
-    sys.addExecResponse({ stdout: '' });
-    // 3. unpushed check
-    sys.addExecResponse({ stdout: '' });
-    // 4. worktree.remove(name, force) → repoRoot = 1
+    // 1. isManaged → getManifest → repoRoot = 1
     sys.addExecResponse({ stdout: '/repo\n' });
-    // 5. worktree.remove → getPath → list = 4
+    // 2. read manifest (file doesn't exist → throw → empty manifest)
+    // 3. getPath(name) → list → repoRoot + porcelain + 2 status = 4
     addListResponses(sys, 2);
-    // 6. status check inside remove
+    // 4. status check (via ctx.system.exec)
     sys.addExecResponse({ stdout: '' });
-    // 7. unpushed inside remove
+    // 5. unpushed check
     sys.addExecResponse({ stdout: '' });
-    // 8. git worktree remove --force
+    // 6. worktree.remove(name, force) → repoRoot = 1
+    sys.addExecResponse({ stdout: '/repo\n' });
+    // 7. worktree.remove → getPath → list = 4
+    addListResponses(sys, 2);
+    // 8. status check inside remove
     sys.addExecResponse({ stdout: '' });
+    // 9. unpushed inside remove
+    sys.addExecResponse({ stdout: '' });
+    // 10. git worktree remove --force
+    sys.addExecResponse({ stdout: '' });
+    // 11. getManifest → repoRoot = 1
+    sys.addExecResponse({ stdout: '/repo\n' });
+    // 12. manifest.remove → readFile (doesn't exist → throw → empty) + writeFile
 
     const worktree = createWorktree(sys);
     const commands = new Map();
