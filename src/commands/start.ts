@@ -47,6 +47,7 @@ export const startCommand: Command = {
       cwd: path,
       stdio: 'inherit',
       env,
+      shell: process.platform === 'win32',
     });
 
     const exitCode = await new Promise<number>((resolve) => {

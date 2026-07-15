@@ -39,11 +39,13 @@ export const runCommand: Command = {
       OPENWTS_BRANCH: (await getBranchName(ctx, path)),
     };
 
-    // Spawn the command with inherited stdio
+    // Spawn the command with inherited stdio.
+    // On Windows, npm-installed CLIs are .cmd files — need shell: true to resolve.
     const child = spawn(cmd, cmdRest, {
       cwd: path,
       stdio: 'inherit',
       env,
+      shell: process.platform === 'win32',
     });
 
     return new Promise((resolve, reject) => {
