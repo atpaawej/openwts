@@ -90,7 +90,7 @@ To add "openwts sync" → create src/commands/sync.ts
 
 - `src/commands/*.ts` — new command files
 
-**Why not a plugin system?** Plugin systems add packaging, lifecycle, and versioning complexity. For 7-15 commands, a directory scan is simpler, faster, and typesafe. Plugin support can be added behind the same `Command` interface if third-party commands become a real need.
+**Why not a plugin system?** Plugin systems add packaging, lifecycle, and versioning complexity. For 5-15 commands, a directory scan is simpler, faster, and typesafe. Plugin support can be added behind the same `Command` interface if third-party commands become a real need.
 
 ---
 
@@ -141,13 +141,13 @@ No error type polymorphism, no complex error hierarchies. `OpenwtError` for ever
 
 ---
 
-## 7. Shell Integration
+## 7. One-Shot Design (Replacing Shell Integration)
 
-**The constraint:** A child process cannot change the parent shell's current directory. This is an operating system constraint that `zoxide`, `nvm`, `rbenv`, and every other navigation tool faces.
+The `switch` and `install` commands existed only to support manually `cd`-ing into a worktree from the user's shell — which requires a shell wrapper because a child process cannot change its parent's working directory.
 
-**The solution in openwts:** A shell function wrapper that intercepts `openwts switch` and executes `cd` in the current shell. Other commands pass through to the real binary.
+The one-shot refactor replaced that pattern: `openwts <name>` (routed to the `start` command) creates a worktree and spawns `opencode` directly inside it via `child_process.spawn(cwd=worktreePath)`. No shell wrapper needed. Cleanup happens on exit.
 
-**Why not make users type `cd $(openwts switch x)` every time?** Because it's annoying and nobody remembers the syntax. The one-time `openwts install` trades a setup step for daily ergonomic wins.
+This eliminated the two commands that required the most cross-platform complexity (especially PowerShell vs bash) while keeping the UX ergonomic — the user types one command, gets an opencode session in their worktree, and never thinks about shell integration again.
 
 ---
 
@@ -158,7 +158,7 @@ These decisions were consciously deferred to keep v1 deep and focused:
 | Feature | Why deferred |
 |---------|-------------|
 | Config file | V1 has zero configuration. Custom worktree paths or behaviors can be added when users ask for them. |
-| Plugin system | Unnecessary for 7-15 commands. The directory-scan registration pattern is sufficient. |
+| Plugin system | Unnecessary for 5-15 commands. The directory-scan registration pattern is sufficient. |
 | JSON output | Primary user is a human in a terminal. `--json` can be added to `output.ts` later for CI integration. |
 | `sync` / `rename` commands | Useful but not essential for v1. Following YAGNI — add when the workflow demands it. |
 | Windows git path detection | Handled by the OS PATH, but edge cases (Git Bash vs WSL) can be addressed as they arise. |

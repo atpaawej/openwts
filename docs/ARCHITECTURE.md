@@ -43,9 +43,7 @@ src/
 │   ├── list.ts           # openwts list
 │   ├── run.ts            # openwts run <name> [-- cmd]
 │   ├── remove.ts         # openwts remove <name>
-│   ├── prune.ts          # openwts prune
-│   ├── switch.ts         # openwts switch <name>
-│   └── install.ts        # openwts install (shell setup)
+│   └── prune.ts          # openwts prune
 ```
 
 ### Dependency flow
@@ -192,20 +190,4 @@ $ openwts run oops
 
 ---
 
-## Shell Integration
-
-`openwts switch <name>` requires a shell function because a child process cannot change the parent shell's current directory.
-
-`openwts install` adds this function to the user's `.zshrc`/`.bashrc`:
-
-```bash
-owt() {
-  if [ "$1" = "switch" ]; then
-    cd "$(openwts switch "$2")"
-  else
-    openwts "$@"
-  fi
-}
-```
-
-**One-time setup.** After that, `openwts switch my-task` just works.
+_Shell integration was removed in v0.2. The `start` (one-shot) command creates a worktree and spawns `opencode` inside it directly — no shell wrapper needed._

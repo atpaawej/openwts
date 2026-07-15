@@ -21,11 +21,6 @@ export interface ExecResult {
   stderr: string;
 }
 
-export interface ShellConfig {
-  type: 'bash' | 'zsh' | 'fish' | 'powershell';
-  configPath: string;
-}
-
 /**
  * Known, actionable error.
  * Commands throw OpenwtError for failures the user can understand and fix.

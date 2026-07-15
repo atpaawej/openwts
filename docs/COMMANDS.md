@@ -6,7 +6,7 @@
 openwts <command> [arguments...] [-- flags...]
 ```
 
-Alias (after `openwts install`): `owt`
+Alias: `owt`
 
 ---
 
@@ -59,30 +59,6 @@ openwts ls
 **Exit codes:**
 - `0` — success
 - `1` — not in a git repository
-
----
-
-## `openwts switch <name>`
-
-Navigate into a worktree.
-
-**Requires:** Shell function installed via `openwts install`.
-
-**Arguments:**
-
-| Position | Name | Required | Description |
-|----------|------|----------|-------------|
-| 1 | `name` | ✅ | Worktree name |
-
-**Examples:**
-```bash
-openwts switch fix-login-bug
-# You are now in: .openwts/worktrees/fix-login-bug/
-```
-
-**Exit codes:**
-- `0` — path resolved (caller should cd)
-- `1` — worktree not found
 
 ---
 
@@ -176,39 +152,6 @@ Remove all non-main worktrees.
 
 ---
 
-## `openwts install`
-
-Set up shell integration for `switch` support.
-
-| Flag | Description |
-|------|-------------|
-| `--shell <name>` | Force shell type (`zsh`, `bash`, `fish`) |
-
-**Discovers:**
-1. Shell from `$SHELL` environment variable
-2. Config file location (`.zshrc`, `.bashrc`, `config.fish`)
-3. Checks if integration is already present (idempotent)
-
-**What it adds:**
-```bash
-# openwts shell integration
-owt() {
-  if [ "$1" = "switch" ]; then
-    cd "$(openwts "$@")"
-  else
-    openwts "$@"
-  fi
-}
-```
-
-**After install:** `source ~/.zshrc` (or restart terminal).
-
-**Exit codes:**
-- `0` — installed (or already installed)
-- `1` — unsupported shell, config file not writable
-
----
-
 ## Exit Code Summary
 
 | Code | Meaning |
@@ -216,4 +159,3 @@ owt() {
 | `0` | Success |
 | `1` | General error (worktree not found, validation failure, etc.) |
 | `2` | Not in a git repository |
-| `3` | Shell integration not installed (for `switch`) |

@@ -12,11 +12,9 @@
 import type { Command } from './command.js';
 import { createCommand } from './create.js';
 import { listCommand } from './list.js';
-import { switchCommand } from './switch_.js';
 import { runCommand } from './run.js';
 import { removeCommand } from './remove.js';
 import { pruneCommand } from './prune.js';
-import { installCommand } from './install.js';
 import { startCommand } from './start.js';
 
 export function loadCommands(): Map<string, Command> {
@@ -25,11 +23,9 @@ export function loadCommands(): Map<string, Command> {
   // Static registration — keeps startup fast and avoids fs scan + dynamic imports
   register(commands, createCommand);
   register(commands, listCommand);
-  register(commands, switchCommand);
   register(commands, runCommand);
   register(commands, removeCommand);
   register(commands, pruneCommand);
-  register(commands, installCommand);
   register(commands, startCommand);
 
   return commands;

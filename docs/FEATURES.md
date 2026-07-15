@@ -2,7 +2,7 @@
 
 ## Overview
 
-openwts provides **7 commands** that wrap git worktree operations into a simple, focused CLI for opencode users.
+openwts provides **5 commands** that wrap git worktree operations into a simple, focused CLI for opencode users.
 
 ---
 
@@ -59,32 +59,6 @@ Show all worktrees for the current repo.
 **Exit codes:**
 - `0` — success
 - `1` — not in a git repository
-
----
-
-## `openwts switch <name>`
-
-Navigate to a worktree in the current shell.
-
-| Argument | Required | Description |
-|----------|----------|-------------|
-| `name` | ✅ | Worktree name |
-
-**What happens:**
-1. Looks up the worktree path
-2. Outputs the path for the shell function to `cd` into
-
-**Requires the shell function** (installed via `openwts install`). Without it, this command prints the path but doesn't change directory.
-
-**Example:**
-```bash
-openwts switch fix-login-bug
-# You are now in .openwts/worktrees/fix-login-bug/
-```
-
-**Errors:**
-- `Worktree "x" not found` — no matching worktree
-- `Suggestion: openwts create x` — helpful hint
 
 ---
 
@@ -181,48 +155,12 @@ Remove 3 worktrees? [y/N]
 
 ---
 
-## `openwts install`
-
-Set up the shell function for `switch` to work.
-
-**What happens:**
-1. Detects the user's shell (zsh, bash, fish)
-2. Locates the correct config file (`.zshrc`, `.bashrc`, `config.fish`)
-3. Checks if the function is already installed (idempotent)
-4. Appends the shell function definition
-5. Prints instructions to reload: `source ~/.zshrc`
-
-**Shells supported:**
-| Shell | Config file | Status |
-|-------|-------------|--------|
-| zsh | `~/.zshrc` | ✅ |
-| bash | `~/.bashrc` | ✅ |
-| fish | `~/.config/fish/config.fish` | ✅ |
-
-**What gets added:**
-```bash
-# openwts shell integration
-owt() {
-  if [ "$1" = "switch" ]; then
-    cd "$(openwts "$@")"
-  else
-    openwts "$@"
-  fi
-}
-```
-
-**The function also aliases `openwts` to `owt`** — because `owt run my-task` is even shorter than `openwts run my-task`.
-
----
-
 ## Summary
 
 | Command | Purpose | Frequency |
 |---------|---------|-----------|
 | `create` | Isolate a new task | Daily |
 | `list` | See what you're working on | Daily |
-| `switch` | Change context | Daily |
 | `run` | Work inside a worktree | Daily |
 | `remove` | Clean up finished tasks | Weekly |
 | `prune` | Bulk cleanup | Monthly |
-| `install` | One-time setup | Once |
