@@ -6,7 +6,47 @@
 openwts <command> [arguments...] [-- flags...]
 ```
 
-Alias: `owt`
+If `<command>` is not a known command name, it's treated as a worktree name and dispatched to the `start` (one-shot) command.
+
+---
+
+## `openwts start <name>`
+
+**Alias:** Any unrecognized command name is routed here. `openwts fix-login-bug` ≡ `openwts start fix-login-bug`
+
+Create a worktree, launch `opencode` inside it, and clean up on exit.
+
+**Arguments:**
+
+| Position | Name | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| 1 | `name` | ✅ | — | Worktree and branch name |
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--base`, `-b` | Base branch to fork from (default: repo default) |
+| `--no-prompt`, `-p` | Non-interactive mode — leave worktree on exit, don't prompt |
+| `--clean`, `-c` | Force cleanup even with dirty/unpushed changes |
+
+**Cleanup behavior:**
+- No changes, no unpushed commits → auto-remove worktree + branch
+- Has changes or unpushed commits → prompt "Keep or remove?"
+- `--no-prompt` / `-p` → leave worktree in place
+- `--clean` / `-c` → remove regardless of state
+
+**Examples:**
+```bash
+openwts fix-login-bug                  # one-shot
+openwts start api-redesign             # explicit
+openwts start hotfix --base main       # from main branch
+openwts start experiment -p            # non-interactive, leave on exit
+```
+
+**Exit codes:**
+- `0` — completed (worktree may have been removed or kept)
+- `1` — creation failed, opencode not found
 
 ---
 
@@ -46,9 +86,11 @@ List all worktrees in the current repository.
 | Column | Description |
 |--------|-------------|
 | Name | Worktree name (derived from path) |
+| Managed | Whether created by openwts (✓) or manually (-) |
 | Branch | Git branch checked out in the worktree |
 | Path | Filesystem path |
 | Dirty | Whether uncommitted changes exist |
+| Current | Whether this is the current worktree |
 
 **Examples:**
 ```bash
@@ -64,7 +106,7 @@ openwts ls
 
 ## `openwts run <name> [-- <cmd>]`
 
-Execute a command inside a worktree.
+Execute a command inside a worktree. After the command exits, cleans up if the worktree was created by openwts.
 
 | Position | Name | Required | Default | Description |
 |----------|------|----------|---------|-------------|
@@ -113,9 +155,10 @@ Delete a worktree with safety checks.
 **Safety checks (in order):**
 1. ✅ Worktree exists
 2. ✅ Not deleting the main repo
-3. ⚠️ Warn if worktree has dirty changes
-4. ⚠️ Warn if worktree has unpushed commits
-5. ⚠️ Confirm (unless `--force`)
+3. ⚠️ Warn if worktree was NOT created by openwts
+4. ⚠️ Warn if worktree has dirty changes
+5. ⚠️ Warn if worktree has unpushed commits
+6. ⚠️ Confirm (unless `--force`)
 
 **Examples:**
 ```bash
@@ -139,12 +182,11 @@ Remove all non-main worktrees.
 
 **Shows a summary table:**
 ```
-▸ fix-login-bug    — clean
-▸ analytics-v2     — has uncommitted changes ⚠️
-▸ old-experiment   — clean
+ Name              Dirty  Managed
+ fix-login-bug     ✓      ✓
+ analytics-v2      ⚠      ✓
+ old-experiment    ✓      -
 ```
-
-**Then confirms:** `Remove 3 worktrees? [y/N]`
 
 **Exit codes:**
 - `0` — all worktrees removed (or none to remove)
@@ -158,4 +200,3 @@ Remove all non-main worktrees.
 |------|---------|
 | `0` | Success |
 | `1` | General error (worktree not found, validation failure, etc.) |
-| `2` | Not in a git repository |

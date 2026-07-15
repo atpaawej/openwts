@@ -4,55 +4,26 @@
 
 You know the feeling. You're deep in a feature, then — *"fix this urgent bug"*. Now you're stashing, branch-hopping, praying nothing breaks. Your flow is shattered.
 
-**openwts** is your exit from that chaos. One command, and you have an isolated git worktree ready for a new task. Another command, and `opencode` opens right inside it — fresh context, zero conflicts, no stash. When you're done, delete it. Your main branch stays pristine.
+**openwts** is your exit from that chaos. One command, and you have an isolated git worktree ready for a new task with `opencode` running inside it. When you're done, you exit — cleanup happens automatically. Your main branch stays pristine.
 
 ---
 
-## The Pitch
-
-### For the solo dev who ships fast
+## The One-Shot Flow
 
 ```bash
-# Deep in a feature
-openwts run auth-rewrite -- opencode
-
+# Deep in a feature — opencode running
 # Boss: "Fix login bug NOW"
-openwts create login-hotfix main
-openwts run login-hotfix -- opencode "fix the login crash"
 
-# Back to feature — your code is right where you left it
-openwts switch auth-rewrite
+# One command:
+openwts login-hotfix
+# → creates worktree, opens opencode inside it
+# → fix the bug, exit opencode
+# → auto-cleanup if no changes, prompt if dirty
+
+# Back to your feature — code right where you left it
 ```
 
-**Zero friction. Zero context loss. Zero excuses.**
-
-### For the team working in parallel
-
-```bash
-# Code review? Jump in clean
-openwts create review-pr-42
-openwts run review-pr-42 -- opencode "review these changes"
-
-# Experiment without fear
-openwts create risky-refactor
-openwts run risky-refactor -- opencode "try the new caching"
-# Didn't work? Delete it. Main untouched.
-openwts remove risky-refactor
-```
-
-**Your `main` branch is sacred. Protect it with openwts.**
-
-### For the CI/CD paranoid
-
-```bash
-# Test in isolation before merging
-openwts create test-deploy-flow
-openwts run test-deploy-flow -- npm run build:staging
-openwts run test-deploy-flow -- npm test
-openwts remove test-deploy-flow
-```
-
-**What happens in a worktree, stays in the worktree.**
+This is `claude -w` for opencode. One command, end to end.
 
 ---
 
@@ -61,9 +32,9 @@ openwts remove test-deploy-flow
 | Problem | How openwts fixes it |
 |---------|---------------------|
 | Stashing and popping like a caveman | Every task gets its own directory. No stash. |
-| `git checkout -b` + `git worktree add` incantations | One command: `openwts create task-name` |
-| Forgetting which worktree had what | `openwts list` shows all active worktrees, branch, and dirty status |
-| Switching between contexts disrupts your opencode session | `openwts switch task-name` takes you there |
+| `git checkout -b` + `git worktree add` incantations | One command: `openwts <name>` |
+| Forgetting which worktree had what | `openwts list` shows all active worktrees, branch, dirty status, and whether openwts manages them |
+| opencode doesn't have `claude -w` | `openwts <name>` does exactly that: create + open + cleanup |
 | Cleaning up old worktrees manually | `openwts prune` — gone with safety checks |
 | Fear of breaking production while experimenting | Each worktree is isolated. **Your main branch never changes.** |
 
@@ -73,10 +44,10 @@ openwts remove test-deploy-flow
 
 | Metric | Before openwts | With openwts |
 |--------|---------------|--------------|
-| Context switch cost | Mental + git overhead = 15+ min | `openwts create && openwts run` = 2 seconds |
+| Context switch cost | Mental + git overhead = 15+ min | `openwts <name>` = 2 seconds |
 | Parallel task safety | Risky, manual, error-prone | Guaranteed isolation |
-| Cleanup discipline | "I'll get to it" (never happens) | `openwts prune` — one command |
-| opencode integration | Manual `cd` and branch management | Automatic — opens right in the worktree |
+| Cleanup discipline | "I'll get to it" (never happens) | Auto-cleanup + `openwts prune` |
+| opencode integration | No worktree support | One-shot create + open + cleanup |
 
 ---
 
@@ -92,12 +63,11 @@ openwts remove test-deploy-flow
 
 ```bash
 npm install -g openwts
-openwts install                              # shell setup (one-time)
-openwts create my-new-feature                # isolate your work
-openwts run my-new-feature                   # opencode in the worktree
-openwts list                                 # see all worktrees
-openwts switch my-new-feature                # cd into it (shell function)
-openwts remove my-new-feature                # clean up when done
+
+cd my-project
+openwts my-new-feature     # one-shot: create + open + cleanup
+openwts list               # see all worktrees
+openwts remove my-new-feature  # clean up when done
 ```
 
 **From zero to isolated in 2 seconds.**
