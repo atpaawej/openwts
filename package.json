@@ -2,19 +2,27 @@
   "name": "openwts",
   "version": "0.2.0",
   "description": "🌿 Isolated worktrees for opencode. Spin up, switch, run, and clean up git worktrees with zero friction.",
-  "keywords": ["git", "worktree", "opencode", "cli", "productivity"],
+  "keywords": [
+    "git",
+    "worktree",
+    "opencode",
+    "cli",
+    "productivity"
+  ],
   "homepage": "https://github.com/atpaawej/openwts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/atpaawej/openwts.git"
+    "url": "git+https://github.com/atpaawej/openwts.git"
   },
   "license": "MIT",
   "author": "atpaawej",
   "type": "module",
   "bin": {
-    "openwts": "./dist/index.js"
+    "openwts": "dist/index.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
