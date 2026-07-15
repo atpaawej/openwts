@@ -35,20 +35,48 @@ Every `git stash`, `git checkout -b`, and "which branch was I on?" slows you dow
 | `remove <name>` | Delete a worktree with safety checks |
 | `prune` | Delete all non-main worktrees |
 
-## Quick start
+## Usage
+
+### 🚀 One-shot (the main flow)
+
+Start a new task and jump straight into opencode:
 
 ```bash
-# Install
-npm install -g openwts
-
-# One-shot — create, open opencode, auto-cleanup on exit
 cd my-project
-openwts fix-login-bug
-
-# Or explicit steps
-openwts create analytics-v2
-openwts run analytics-v2
+openwts feature-auth
 ```
+→ Creates worktree, opens opencode inside it.
+→ Exit opencode → auto-cleanup. Done.
+
+### 📋 See what you're working on
+
+```bash
+openwts list
+```
+Shows every worktree, what branch it's on, whether it's dirty, and if openwts manages it.
+
+### 🧹 Clean up when done
+
+```bash
+openwts remove old-feature
+openwts prune           # remove all non-main worktrees at once
+```
+
+### 🛠️ Run any command in a worktree
+
+```bash
+openwts run feature-auth -- npm test
+openwts run feature-auth -- code .
+```
+
+### 📖 Real-world scenarios
+
+| Scenario | Command |
+|----------|---------|
+| Jump on a hotfix mid-feature | `openwts hotfix` → fix it → exit → back to your feature |
+| Try an experiment safely | `openwts experiment` → try things → exit → auto-cleanup if nothing changed |
+| Review someone's branch | `openwts create review-pr-42` → look around → `openwts remove review-pr-42` |
+| Test in CI-like isolation | `openwts create test-deploy && openwts run test-deploy -- npm run build:staging` |
 
 **Cleanup behavior on exit:**
 - No changes → worktree + branch removed automatically
