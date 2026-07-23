@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import type { Command, CommandContext } from './command.js';
+import { resolveAgent } from './command.js';
 import { OpenwtError } from '../types.js';
 
 async function getBranchName(ctx: CommandContext, path: string): Promise<string> {
@@ -11,7 +12,7 @@ async function getBranchName(ctx: CommandContext, path: string): Promise<string>
 
 export const runCommand: Command = {
   name: 'run',
-  description: 'Run a command inside a worktree (default: opencode)',
+  description: 'Run an AI coding agent inside an existing worktree',
   arguments: [
     { name: 'name', required: true, description: 'Worktree name' },
   ],
@@ -20,13 +21,10 @@ export const runCommand: Command = {
   async run(args, ctx) {
     const path = await ctx.worktree.getPath(args.name);
 
-    // Determine command to run from _extra (passed after --)
-    const extraArg = args._extra;
-    const cmdArgs: string[] = extraArg !== undefined
-      ? (typeof extraArg === 'string' ? [extraArg] : extraArg as unknown as string[])
-      : [];
-    const cmd = cmdArgs.length > 0 ? cmdArgs[0]! : 'opencode';
-    const cmdRest = cmdArgs.length > 1 ? cmdArgs.slice(1) : [];
+    // Resolve which agent to use
+    const agent = await resolveAgent(ctx, args);
+    const runCmd = agent.bin;
+    const agentArgs = [...(agent.args ?? [])];
 
     const noPrompt = args['no-prompt'] === 'true' || args.p === 'true';
     const forceCleanup = args['clean'] === 'true' || args.c === 'true';
@@ -39,9 +37,11 @@ export const runCommand: Command = {
       OPENWTS_BRANCH: (await getBranchName(ctx, path)),
     };
 
-    // Spawn the command with inherited stdio.
+    ctx.output.info(`Running: ${runCmd} in ${args.name}\n`);
+
+    // Spawn the agent with inherited stdio.
     // On Windows, npm-installed CLIs are .cmd files — need shell: true to resolve.
-    const child = spawn(cmd, cmdRest, {
+    const child = spawn(runCmd, agentArgs, {
       cwd: path,
       stdio: 'inherit',
       env,
@@ -73,8 +73,8 @@ export const runCommand: Command = {
       child.on('error', (err) => {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
           reject(new OpenwtError(
-            `Command not found: ${cmd}`,
-            `Install it or use: openwts run ${args.name} -- <command>`,
+            `Command not found: ${runCmd}`,
+            `Install ${agent.name} or check that it's on your PATH`,
           ));
         } else {
           reject(err);
