@@ -47,21 +47,39 @@ class NodeOutput implements Output {
       return;
     }
     const keys = Object.keys(rows[0]!);
-    // Calculate column widths
+
+    // Calculate visible display widths (handles emoji/double-width chars)
+    const displayWidth = (s: string): number => {
+      let width = 0;
+      for (const ch of s) {
+        const cp = ch.codePointAt(0) ?? 0;
+        // Double-width ranges: commonly emoji, arrows, and misc symbols
+        if (cp >= 0x2000) width += 2;
+        else width += 1;
+      }
+      return width;
+    };
+
+    const padDisplay = (s: string, len: number): string => {
+      const diff = len - displayWidth(s);
+      return diff > 0 ? s + ' '.repeat(diff) : s;
+    };
+
     const widths: Record<string, number> = {};
     for (const key of keys) {
       widths[key] = Math.max(
         key.length,
-        ...rows.map(r => (r[key] ?? '').length),
+        ...rows.map(r => displayWidth(r[key] ?? '')),
       );
     }
+
     // Header
-    const header = keys.map(k => `${BOLD}${k.padEnd(widths[k]!)}${RESET}`).join('  ');
+    const header = keys.map(k => `${BOLD}${padDisplay(k, widths[k]!)}${RESET}`).join('  ');
     console.log(header);
     console.log(keys.map(k => '─'.repeat(widths[k]!)).join('──'));
     // Rows
     for (const row of rows) {
-      console.log(keys.map(k => (row[k] ?? '').padEnd(widths[k]!)).join('  '));
+      console.log(keys.map(k => padDisplay(row[k] ?? '', widths[k]!)).join('  '));
     }
   }
 }

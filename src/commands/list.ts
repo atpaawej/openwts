@@ -14,13 +14,12 @@ export const listCommand: Command = {
       return;
     }
 
+    const repoRoot = (await ctx.worktree.repoRoot()).replace(/\\/g, '/');
     const rows = await Promise.all(worktrees.map(async w => ({
-      Name: w.name,
-      Managed: (await ctx.worktree.isManaged(w.name)) ? '✓' : '-',
+      Name: w.isCurrent ? `${w.name} ◀` : w.name,
       Branch: w.branch,
-      Path: w.path.replace(ctx.system.cwd().replace(/\\/g, '/') + '/', ''),
-      Dirty: w.dirty ? '⚠' : '✓',
-      Current: w.isCurrent ? '◀' : '',
+      Dirty: w.dirty ? '⚠ dirty' : '✓ clean',
+      Managed: (await ctx.worktree.isManaged(w.name)) ? '✓' : '-',
     })));
 
     ctx.output.table(rows);
