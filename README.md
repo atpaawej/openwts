@@ -1,110 +1,185 @@
 # 🌿 openwts
 
-**Isolated worktrees for AI coding agents. Spin up, code, clean up — one command.**
+**Stop context-switching. Start shipping.**
+
+You know that feeling. You're deep in a feature — flow state, everything clicking — and then: *"Hey, can you look at this bug real quick?"*
+
+What happens next?
+
+- Stash. Or commit. Or panic.
+- `git checkout -b hotfix`
+- Fix the thing.
+- `git checkout` back.
+- Pop the stash. Or try to remember what you were doing.
+
+That mental reset costs you **20 minutes** every time. Multiple that by 5 interruptions a day and you've lost an entire afternoon — every single day.
+
+**openwts kills that tax.**
 
 ```bash
 npm install -g openwts
 
 cd my-project
-openwts fix-login-bug       # create worktree → pick agent → auto-cleanup
-openwts claude fix-login-bug # use Claude Code explicitly
-openwts list                # see everything you're working on
-openwts remove fix-login-bug # clean up when done
+openwts fix-login-bug    # new worktree → agent opens → fix → exit → clean
 ```
+
+One command. Isolated environment. Zero mental overhead.
 
 ---
 
-## Why openwts?
+## This Is What Flow Looks Like
 
-Every `git stash`, `git checkout -b`, and "which branch was I on?" slows you down. openwts gives each task its own **isolated directory** — a git worktree — so you can jump between tasks without interrupting your flow.
-
-| Problem | openwts fix |
-|---------|-------------|
-| "Let me stash and switch branches" | One command: `openwts <name>` |
-| "I forgot what I was working on" | `openwts list` shows all worktrees + dirty status |
-| "I hate typing `openwts start` every time" | Default verb routing: `openwts <name>` ≡ `openwts start <name>` |
-| "Which AI coding CLI should I use?" | **Agent-agnostic** — works with Claude Code, opencode, and more |
-| "Let me clean up these old branches" | `openwts prune` — gone, with safety checks |
-
-## Commands
-
-| Command | What it does |
-|---------|-------------|
-| `openwts <name>` | **One-shot:** create worktree → resolve agent → cleanup on exit |
-| `openwts claude <name>` | One-shot with **Claude Code** (agent-as-verb) |
-| `openwts opencode <name>` | One-shot with **opencode** (agent-as-verb) |
-| `create <name> [base]` | Create a worktree + branch from base (default: `main`) |
-| `run <name>` | Open an AI coding agent inside a worktree |
-| `list` | Show all worktrees with branch, path, and dirty status |
-| `remove <name>` | Delete a worktree with safety checks |
-| `prune` | Delete all non-main worktrees |
-
-## Usage
-
-### 🚀 One-shot (the main flow)
-
-Start a new task and jump straight into an AI coding agent:
+Your main worktree stays untouched — no stashes, no partial commits, no "what branch was I on?" Every task gets its own clean room. Jump between them like it's nothing.
 
 ```bash
-cd my-project
-openwts feature-auth           # picker or OPENWTS_DEFAULT_AGENT
-openwts claude feature-auth    # Claude Code explicitly
-openwts opencode feature-auth  # opencode explicitly
+openwts claude redesign-auth    # deep feature work with Claude Code
+openwts opencode hotfix         # hotfix with opencode
+openwts list                    # see everything at a glance
 ```
-→ Resolves agent, creates worktree, opens the agent inside it.
-→ Exit the agent → auto-cleanup. Done.
 
-**Agent resolution** (in priority order):
-1. **Agent-as-verb:** `openwts claude fix-bug` — pre-resolved
-2. **`--agent` flag:** `openwts fix-bug --agent claude`
-3. **`OPENWTS_DEFAULT_AGENT`** env var — persistent preference
-4. **Interactive picker** — keyboard-navigable list of installed agents
+No git gymnastics. No "hold on, let me stash." Just work.
 
-### 📋 See what you're working on
+And when you're done? Exit the agent and the worktree cleans itself up — *poof* — no branches to delete, no directories to sweep.
+
+---
+
+## The Commands
+
+| If you want to… | Type this |
+|---|---|
+| Start a task and code | `openwts fix-login-bug` |
+| Use a specific agent | `openwts claude api-redesign` |
+| Create without opening an agent | `openwts create experiment` |
+| Jump into an existing worktree | `openwts run feature-x` |
+| See what you're working on | `openwts list` |
+| Delete a worktree | `openwts remove old-feature` |
+| Nuke all worktrees | `openwts prune` |
+
+That's it. **6 commands.** The whole tool fits in your head. That's the point.
+
+---
+
+## How It Works (The Engineering)
+
+### One-Shot Flow
+
+The main event. One command does everything:
+
+1. **Creates** a git worktree at `.openwts/worktrees/<name>/` on a fresh branch
+2. **Opens** your AI coding agent inside it — Claude Code, opencode, whatever you use
+3. **Cleans up** when you exit — auto-remove if clean, asks if dirty, leaves it if non-interactive
+
+All in `src/commands/start.ts` — about 80 lines.
+
+### Agent Resolution
+
+openwts is **agent-agnostic**. It doesn't care which AI CLI you use. Here's how it picks one:
+
+```
+❶  openwts claude fix-bug        → pre-resolved (agent-as-verb)
+❷  --agent claude flag           → explicit
+❸  OPENWTS_DEFAULT_AGENT env var → persistent preference
+❹  Interactive picker            → arrow-key menu of installed agents
+```
+
+Add a new agent? Create `src/agents/cursor.ts` with 5 lines. Register it. Done. Zero existing code changes — that's the OCP seam in `src/agents/registry.ts`.
+
+### Smart Cleanup
+
+The cleanup logic in `src/cleanup.ts` decides what happens when the agent exits:
+
+- **Clean state** → auto-delete the worktree and branch (you're welcome)
+- **Dirty/unpushed** → prompts "Keep or remove?"
+- **`--no-prompt` / `-p`** → leaves it in place (for CI/scripts)
+- **`--clean` / `-c`** → removes regardless (yes I'm sure)
+
+### Safety First
+
+openwts wraps every destructive operation in checks. When you `remove` or `prune`, it verifies:
+
+- ✅ Worktree exists
+- ✅ Not deleting the main repository
+- ⚠️ Warns if it has uncommitted changes
+- ⚠️ Warns if it has unpushed commits
+- ⚠️ Asks for confirmation (unless `--force`)
+
+No accidents. Your work is safe.
+
+### Manifest Tracking
+
+openwts keeps a manifest at `.openwts/manifest.json` so it knows which worktrees it created vs ones you made manually with `git worktree add`. It **never** touches worktrees it didn't create — your `git worktree add` habits are perfectly safe, handled in `src/manifest.ts`.
+
+---
+
+## Architecture in One Picture
+
+```
+src/
+├── index.ts              # Entry — three-tier routing
+├── worktree.ts           # Deep module — all git worktree logic (5 methods, ~350 lines)
+├── manifest.ts           # Tracks which worktrees openwts owns
+├── system.ts             # I/O seam — exec + filesystem (NodeSystem / FakeSystem)
+├── output.ts             # Presentation seam — colored terminal / test capture
+├── cleanup.ts            # Cleanup orchestration — auto, prompt, or leave
+│
+├── agents/               # Pluggable agent definitions
+│   ├── registry.ts       # Agent resolution + PATH detection
+│   ├── agent.ts          # Agent interface (4 fields)
+│   ├── claude.ts         # Claude Code definition
+│   └── opencode.ts       # opencode definition
+│
+└── commands/             # One file per command — OCP enabled
+    ├── start.ts          # The one-shot flow
+    ├── create.ts         # Create worktree only
+    ├── list.ts           # Show all worktrees
+    ├── run.ts            # Open agent in existing worktree
+    ├── remove.ts         # Delete safely
+    └── prune.ts          # Batch delete
+```
+
+**The philosophy:** Deep modules, small interfaces. `worktree.ts` hides ~350 lines of complex git logic behind 5 methods. Every bug fix or safety improvement there benefits all 6 commands at once. That's leverage.
+
+---
+
+## Requirements
+
+- **Node.js** >= 18
+- **git** >= 2.5 (for worktree support)
+- An AI coding agent on PATH (Claude Code, opencode, etc.)
+
+That's it. No daemons. No config files. No background services.
+
+---
+
+## Configuration
+
+| Variable | What it does |
+|---|---|
+| `OPENWTS_DEFAULT_AGENT` | Set your default AI agent: `export OPENWTS_DEFAULT_AGENT=claude` |
+
+No config files. No YAML. One env var or don't set it at all and use the interactive picker.
+
+---
+
+## Contributing
+
+PRs welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ```bash
-openwts list
-```
-Shows every worktree, what branch it's on, whether it's dirty, and if openwts manages it.
-
-### 🧹 Clean up when done
-
-```bash
-openwts remove old-feature
-openwts prune           # remove all non-main worktrees at once
+git clone https://github.com/atpaawej/openwts
+cd openwts
+npm install
+npm test          # vitest — all of it
 ```
 
-### 🛠️ Run an agent in an existing worktree
+The codebase is designed so adding a command or agent means **creating a file, not changing existing ones**. The `src/commands/` and `src/agents/` directories are open for extension.
 
-```bash
-openwts run feature-auth                # picker or default agent
-openwts run feature-auth --agent claude # use Claude Code
-```
-
-### 📖 Real-world scenarios
-
-| Scenario | Command |
-|----------|---------|
-| Jump on a hotfix mid-feature | `openwts hotfix` → fix it → exit → back to your feature |
-| Use Claude Code for a task | `openwts claude api-redesign` |
-| Try an experiment safely | `openwts experiment` → try things → exit → auto-cleanup if nothing changed |
-| Review someone's branch | `openwts create review-pr-42` → look around → `openwts remove review-pr-42` |
-| Set a default agent | `export OPENWTS_DEFAULT_AGENT=claude` in your shell config |
-
-**Cleanup behavior on exit:**
-- No changes → worktree + branch removed automatically
-- Has changes → prompted "Keep or remove?"
-- Non-interactive (`-p`/`--no-prompt`) → left in place
-
-## Docs
-
-| Document | What's inside |
-|----------|-------------|
-| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Codebase architecture — modules, seams, adapters, OCP |
-| [docs/FEATURES.md](./docs/FEATURES.md) | Feature breakdown — every command with arguments and errors |
-| [docs/COMMANDS.md](./docs/COMMANDS.md) | CLI reference — all flags, exit codes, and examples |
-| [docs/DESIGN-PHILOSOPHY.md](./docs/DESIGN-PHILOSOPHY.md) | Design principles — deep modules, seam discipline, OCP |
+---
 
 ## License
 
-MIT
+MIT — go build something.
+
+---
+
+Made by someone who got tired of `git stash` and decided to do something about it.
