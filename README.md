@@ -1,4 +1,4 @@
-# 🌿 openwts
+# openwts
 
 **Isolated worktrees for AI coding agents. Spin up, code, clean up — one command.**
 
@@ -18,21 +18,19 @@ openwts remove fix-login-bug # clean up when done
 
 Every `git stash`, `git checkout -b`, and "which branch was I on?" slows you down. openwts gives each task its own **isolated directory** — a git worktree — so you can jump between tasks without interrupting your flow.
 
-| Problem | openwts fix |
-|---------|-------------|
-| "Let me stash and switch branches" | One command: `openwts <name>` |
-| "I forgot what I was working on" | `openwts list` shows all worktrees + dirty status |
-| "I hate typing `openwts start` every time" | Default verb routing: `openwts <name>` ≡ `openwts start <name>` |
-| "Which AI coding CLI should I use?" | **Agent-agnostic** — works with Claude Code, opencode, and more |
-| "Let me clean up these old branches" | `openwts prune` — gone, with safety checks |
+- **`openwts <name>`** — one command instead of stash + switch + restore
+- **`openwts list`** — instantly see all worktrees with dirty status
+- **Default verb routing** — `openwts <name>` ≡ `openwts start <name>`
+- **Agent-agnostic** — works with Claude Code, opencode, and more
+- **`openwts prune`** — clean up all old worktrees with safety checks
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `openwts <name>` | **One-shot:** create worktree → resolve agent → cleanup on exit |
-| `openwts claude <name>` | One-shot with **Claude Code** (agent-as-verb) |
-| `openwts opencode <name>` | One-shot with **opencode** (agent-as-verb) |
+| `openwts <name>` | One-shot: create worktree → resolve agent → cleanup on exit |
+| `openwts claude <name>` | One-shot with Claude Code (agent-as-verb) |
+| `openwts opencode <name>` | One-shot with opencode (agent-as-verb) |
 | `create <name> [base]` | Create a worktree + branch from base (default: `main`) |
 | `run <name>` | Open an AI coding agent inside a worktree |
 | `list` | Show all worktrees with branch, path, and dirty status |
@@ -41,7 +39,7 @@ Every `git stash`, `git checkout -b`, and "which branch was I on?" slows you dow
 
 ## Usage
 
-### 🚀 One-shot (the main flow)
+### One-shot (the main flow)
 
 Start a new task and jump straight into an AI coding agent:
 
@@ -51,37 +49,37 @@ openwts feature-auth           # picker or OPENWTS_DEFAULT_AGENT
 openwts claude feature-auth    # Claude Code explicitly
 openwts opencode feature-auth  # opencode explicitly
 ```
-→ Resolves agent, creates worktree, opens the agent inside it.
-→ Exit the agent → auto-cleanup. Done.
 
-**Agent resolution** (in priority order):
+Agent resolution (in priority order):
+
 1. **Agent-as-verb:** `openwts claude fix-bug` — pre-resolved
 2. **`--agent` flag:** `openwts fix-bug --agent claude`
 3. **`OPENWTS_DEFAULT_AGENT`** env var — persistent preference
 4. **Interactive picker** — keyboard-navigable list of installed agents
 
-### 📋 See what you're working on
+### See what you're working on
 
 ```bash
 openwts list
 ```
+
 Shows every worktree, what branch it's on, whether it's dirty, and if openwts manages it.
 
-### 🧹 Clean up when done
+### Clean up when done
 
 ```bash
 openwts remove old-feature
 openwts prune           # remove all non-main worktrees at once
 ```
 
-### 🛠️ Run an agent in an existing worktree
+### Run an agent in an existing worktree
 
 ```bash
 openwts run feature-auth                # picker or default agent
 openwts run feature-auth --agent claude # use Claude Code
 ```
 
-### 📖 Real-world scenarios
+### Real-world scenarios
 
 | Scenario | Command |
 |----------|---------|
@@ -92,6 +90,7 @@ openwts run feature-auth --agent claude # use Claude Code
 | Set a default agent | `export OPENWTS_DEFAULT_AGENT=claude` in your shell config |
 
 **Cleanup behavior on exit:**
+
 - No changes → worktree + branch removed automatically
 - Has changes → prompted "Keep or remove?"
 - Non-interactive (`-p`/`--no-prompt`) → left in place
