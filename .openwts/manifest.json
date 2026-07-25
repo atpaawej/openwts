@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "worktrees": {
+    "dev": {
+      "created": "2026-07-25T15:14:01.144Z",
+      "branch": "dev",
+      "path": "C:/Users/Aawejpathan/arts/openwts/.openwts/worktrees/dev"
+    }
+  }
+}
