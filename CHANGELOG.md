@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 ### Bug Fixes
 
 - Spawn commands through shell on Windows
+- Address code review findings — docs, CancelledError, dedup, command-level tests
 
 ### Documentation
 
@@ -16,6 +17,6 @@ All notable changes to this project will be documented in this file.
 
 ### Chore
 
-- Add auto-release workflow with git-cliff
 - Bump to v0.2.1 (Windows spawn fix)
 - Bump to v0.2.2
+- Bump to v0.2.3
