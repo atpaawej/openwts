@@ -1,7 +1,7 @@
 {
   "name": "openwts",
   "version": "0.2.1",
-  "description": "🌿 Isolated worktrees for opencode. Spin up, switch, run, and clean up git worktrees with zero friction.",
+  "description": "🌿 Isolated git worktrees for AI coding agents — Claude Code, opencode, and more. Spin up, switch, run, and clean up with zero friction.",
   "keywords": [
     "git",
     "worktree",
