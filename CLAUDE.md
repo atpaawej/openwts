@@ -2,47 +2,40 @@
 
 ## Release process
 
-Releases are fully automated via CI. The user only pushes a tag.
+The agent handles releases. No CI involved.
 
 ### How to release
 
-1. **Ensure `main` has everything** you want to ship.
-2. **Create and push a version tag:**
+1. **Ensure `main` has everything** you want to ship (PR merged, tests green).
+2. **Tell the agent** the version you want (patch/minor/major) — or just say "release" and the agent picks the next patch version.
+3. **The agent will:**
+   - Bump `version` in `package.json`
+   - Update `CHANGELOG.md` with a clean summary of commits since the last tag
+   - Commit and tag the release
+   - Push to GitHub
+   - Create a GitHub Release via `gh release create`
+   - Publish to npm via `npm publish`
 
-   ```bash
-   git tag v0.3.0
-   git push origin v0.3.0
-   ```
+### Changelog format
 
-3. **That's it.** The CI workflow (`.github/workflows/release.yml`) handles:
-   - Running `git-cliff` to generate `CHANGELOG.md` from conventional commits
-   - Committing `CHANGELOG.md` back to `main`
-   - Creating a GitHub Release with the latest version's notes
+Keep it simple — group commits under these sections (if there are commits for them):
+
+```
+### Features
+### Bug Fixes
+### Documentation
+### Chore
+```
+
+Use commit messages as bullet points, link PRs with `[#N](url)`.
 
 ### Commit conventions
 
-The changelog auto-generates from conventional commit prefixes.
-Use these formats for clean changelog sections:
+Use these for clean changelog entries:
 
 ```
 feat: add <feature>              → "Features" section
-feat(<scope>): <message>         → scoped features
 fix: <description>               → "Bug Fixes" section
 docs: <description>              → "Documentation" section
-refactor: <description>          → "Refactor" section
-perf: <description>              → "Performance" section
-test: <description>              → "Testing" section
 chore: <description>             → "Chore" section
-chore(release): <version>        → skipped (auto-generated commits)
 ```
-
-### What NOT to do
-
-- Do NOT manually edit `CHANGELOG.md` — the CI overwrites it.
-- Do NOT create GitHub Releases manually — the CI does it.
-- Do NOT bump `version` in `package.json` manually — the tag IS the version.
-
-### Configuration files
-
-- `cliff.toml` — git-cliff configuration (commit parsers, grouping, formatting)
-- `.github/workflows/release.yml` — the release CI workflow
