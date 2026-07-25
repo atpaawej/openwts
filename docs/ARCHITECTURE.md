@@ -18,7 +18,7 @@ openwts follows the **deep modules** design philosophy — a lot of behaviour be
 1. **Depth over shallowness.** Small interface, big implementation. A module with 5 methods that hides 200 lines of logic is deep. A module with 5 methods that each call one git command is shallow — don't bother.
 2. **Seams only where justified.** "One adapter means a hypothetical seam. Two adapters means a real one." Don't introduce an interface unless you genuinely need both a production adapter and a test fake.
 3. **The interface is the test surface.** Tests cross the same seam as callers. No testing past the interface.
-4. **Open for extension, closed for modification (OCP).** Adding a new command requires zero changes to existing code — just create a new file.
+4. **Open for extension, closed for modification (OCP).** Adding a new command or agent requires zero changes to existing code — just create a new file.
 
 ---
 
@@ -26,7 +26,7 @@ openwts follows the **deep modules** design philosophy — a lot of behaviour be
 
 ```
 src/
-├── index.ts              # Entry point (bin)
+├── index.ts              # Entry point (bin) — three-tier routing (commands → agents → start)
 ├── types.ts              # Shared domain types (WorktreeInfo, ExecResult)
 ├── worktree.ts           # DEEP MODULE — all git worktree logic
 ├── manifest.ts           # Manifest tracking (openwts-created worktrees)
@@ -39,31 +39,41 @@ src/
 ├── output.ts             # Seam B: terminal output
 │   └── CaptureOutput     # (in tests) collect output for assertions
 │
+├── agents/               # Agent abstraction layer (added in v0.3)
+│   ├── agent.ts          # Agent interface (name, description, bin, args)
+│   ├── registry.ts       # DEEP MODULE — registration + lazy PATH detection
+│   ├── picker.ts         # Interactive terminal picker (internal)
+│   ├── opencode.ts       # Built-in opencode agent definition
+│   └── claude.ts         # Built-in claude agent definition
+│
 ├── commands/
 │   ├── loader.ts         # Static registration (OCP enabler)
 │   ├── start.ts          # openwts <name> — one-shot create + run + cleanup
 │   ├── create.ts         # openwts create <name> [base]
 │   ├── list.ts           # openwts list
-│   ├── run.ts            # openwts run <name> [-- cmd]
+│   ├── run.ts            # openwts run <name> — agent inside existing worktree
 │   ├── remove.ts         # openwts remove <name>
-│   └── prune.ts          # openwts prune
+│   ├── prune.ts          # openwts prune
+│   └── prompt.ts         # Interactive name prompt (internal, used by router)
 ```
 
 ### Dependency flow
 
 ```
 index.ts
-  └─→ cli.ts (composition root)
+  └─→ main() (composition root)
         ├─→ worktree.ts  ←── system.ts  ←── child_process.exec / fs
         ├─→ output.ts    ←── console
+        ├─→ agents/      ←── system.ts (for PATH detection)
         └─→ commands/loader.ts
-              └─→ commands/*.ts  ←── worktree, system, output (via CommandContext)
+              └─→ commands/*.ts  ←── worktree, system, output, agents (via CommandContext)
 ```
 
 **Rules:**
 - `worktree.ts` depends ONLY on `system.ts`. Never on `output.ts` or commands.
-- `commands/*.ts` depend on `worktree.ts`, `system.ts`, and `output.ts`.
+- `commands/*.ts` depend on `worktree.ts`, `system.ts`, `output.ts`, and optionally `agents/`.
 - `worktree.ts` never prints or formats output — it returns structured data or throws.
+- `agents/registry.ts` is the deep module of the agent layer: PATH detection, memoization, and error translation behind a 5-method interface.
 - `index.ts` owns error handling: catches `OpenwtError` (known) and unexpected errors.
 
 ---
@@ -97,6 +107,18 @@ interface Worktree {
 - All error messages and user-facing suggestions
 
 Every improvement to parsing, safety, or cleanup benefits all 6 commands simultaneously. That's **depth**.
+
+---
+
+## The Agent Registry: `src/agents/registry.ts`
+
+A second deep module, added in v0.3. Its 5-method interface hides:
+
+- Cross-platform `which`/`where` PATH resolution
+- Memoization (installed agent cache, invalidated on registration)
+- Error translation (unknown name → suggestion)
+- Registration deduplication
+- Support for any number of agents without caller changes
 
 ---
 
@@ -143,9 +165,9 @@ Same pattern: `NodeOutput` (console) in production, `CaptureOutput` (collects in
 
 ## Open-Closed Principle
 
-New commands are added by creating a file — no existing files are modified.
+New commands and agents are added by creating a file — no existing files are modified.
 
-### How it works
+### How it works (commands)
 
 Each command file exports a `Command` object:
 
@@ -169,8 +191,50 @@ The `loader.ts` statically registers every command. Just import and call `regist
 
 **To add `sync`:** Create `src/commands/sync.ts`, import it in `loader.ts`, call `register()`. Done.
 
-**What is closed:** `index.ts`, `worktree.ts`, `types.ts`, every existing command.
-**What is open:** The command directory — new commands extend the system without modifying it.
+### How it works (agents)
+
+Each agent definition exports an `Agent` object. The registry constructor imports and registers built-in agents.
+
+**To add `cursor`:** Create `src/agents/cursor.ts`, import it in `registry.ts`, add to constructor's `register()` call. Zero changes to commands, router, or picker.
+
+### What is closed
+
+`index.ts`, `worktree.ts`, `types.ts`, `system.ts`, `output.ts`, every existing command and command handler.
+
+### What is open
+
+- `src/commands/*.ts` — new command files
+- `src/agents/*.ts` — new agent definitions
+
+---
+
+## Routing
+
+### Three-tier routing (v0.3+)
+
+```
+argv[0] = known command?   → dispatch directly
+argv[0] = known agent?     → strip agent from argv, resolve agent, set ctx.agent,
+                              route remaining args to `start`
+otherwise                  → route to `start` (fallthrough with picker/default resolution)
+```
+
+### Agent resolution chain (used by both router and `ctx.resolveAgent()`)
+
+1. **Agent-as-verb** — `openwts claude fix-bug` → pre-resolved by router
+2. **`--agent` flag** — `openwts fix-bug --agent claude`
+3. **`OPENWTS_DEFAULT_AGENT` env var**
+4. **Interactive picker** (fallback)
+
+### Default verb routing (v0.2 and earlier)
+
+If `argv[0]` is not a known command name, it's treated as a worktree name and dispatched to the `start` command. This enables `openwts feature-x` without typing `openwts start feature-x`.
+
+```
+openwts feature-x     # "feature-x" isn't a command → routed to start
+openwts start feature-x  # explicit, same result
+openwts list          # "list" is a known command → normal dispatch
+```
 
 ---
 
@@ -196,16 +260,4 @@ The suggestion pattern helps users recover quickly:
 $ openwts run oops
 ✗ Worktree "oops" not found
   Suggestion: Create it first — openwts create oops
-```
-
----
-
-## Default Verb Routing
-
-If `argv[0]` is not a known command name, it's treated as a worktree name and dispatched to the `start` command. This enables `openwts feature-x` without typing `openwts start feature-x`.
-
-```
-openwts feature-x     # "feature-x" isn't a command → routed to start
-openwts start feature-x  # explicit, same result
-openwts list          # "list" is a known command → normal dispatch
 ```

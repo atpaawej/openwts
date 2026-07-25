@@ -19,6 +19,7 @@ import { loadCommands } from './commands/loader.js';
 import { createRegistry } from './agents/registry.js';
 import { OpenwtError } from './types.js';
 import type { CommandContext } from './commands/command.js';
+import { CancelledError } from './commands/command.js';
 
 export async function main(argv: string[]): Promise<number> {
   const system = createNodeSystem();
@@ -162,6 +163,10 @@ async function runCommand(
     await run(args, ctx);
     return 0;
   } catch (e) {
+    if (e instanceof CancelledError) {
+      output.info('Cancelled');
+      return 0;
+    }
     if (e instanceof OpenwtError) {
       output.error(e.message);
       if (e.suggestion) {

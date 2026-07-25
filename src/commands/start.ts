@@ -12,7 +12,7 @@
 
 import { spawn } from 'node:child_process';
 import type { Command } from './command.js';
-import { resolveAgent } from './command.js';
+import { resolveAgent, agentSpawnArgs } from './command.js';
 
 export const startCommand: Command = {
   name: 'start',
@@ -25,8 +25,7 @@ export const startCommand: Command = {
   async run(args, ctx) {
     // Resolve which agent to use
     const agent = await resolveAgent(ctx, args);
-    const runCmd = agent.bin;
-    const agentArgs = [...(agent.args ?? [])];
+    const [runCmd, agentArgs] = agentSpawnArgs(agent);
 
     const name = args.name;
     const base = args.base;

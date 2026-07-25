@@ -30,13 +30,21 @@ export interface CommandContext {
 }
 
 /**
+ * Cancelled by user — the caller should exit gracefully (code 0).
+ * Used when the interactive picker is cancelled or a prompt is aborted.
+ */
+export class CancelledError extends Error {
+  override readonly name = 'CancelledError';
+}
+
+/**
  * Resolve which agent to use, following the resolution chain:
  *
  * 1. Pre-resolved ctx.agent (from agent-as-verb routing)
  * 2. --agent / -a flag in parsed args
  * 3. OPENWTS_DEFAULT_AGENT environment variable
  * 4. Interactive picker (filtered to installed agents)
- *    - If picker is cancelled → exit gracefully
+ *    - If picker is cancelled → CancelledError
  * 5. Error if nothing resolves
  */
 export async function resolveAgent(
@@ -87,11 +95,15 @@ export async function resolveAgent(
   const picked = await pickAgent(installed);
 
   if (!picked) {
-    // Picker was cancelled
-    throw new OpenwtError('Agent selection cancelled');
+    throw new CancelledError('Agent selection cancelled');
   }
 
   return picked;
+}
+
+/** Extract spawn-ready binary name and args from an Agent. */
+export function agentSpawnArgs(agent: Agent): [bin: string, args: readonly string[]] {
+  return [agent.bin, agent.args ?? []];
 }
 
 export interface Command {

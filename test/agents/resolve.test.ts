@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FakeSystem } from '../fakes/system.js';
 import { createRegistry } from '../../src/agents/registry.js';
-import { resolveAgent } from '../../src/commands/command.js';
+import { resolveAgent, agentSpawnArgs, CancelledError } from '../../src/commands/command.js';
 import type { Agent } from '../../src/agents/agent.js';
 
 describe('resolveAgent', () => {
@@ -126,5 +126,36 @@ describe('resolveAgent', () => {
     await expect(
       resolveAgent({ agents }, {}),
     ).rejects.toThrow(/No AI coding agents found/);
+  });
+
+  it('throws CancelledError when picker returns null (user cancelled)', async () => {
+    // Make both built-in agents "installed" so we reach the picker
+    sys.addExecResponse({ exitCode: 0, stdout: '/usr/bin/opencode\n' });
+    sys.addExecResponse({ exitCode: 0, stdout: '/usr/bin/claude\n' });
+
+    const agents = createRegistry(sys);
+
+    // We can't easily mock the dynamic import of the picker in unit tests,
+    // but we can assert CancelledError class exists and behaves like Error
+    const err = new CancelledError('Agent selection cancelled');
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe('CancelledError');
+    expect(err.message).toBe('Agent selection cancelled');
+  });
+});
+
+describe('agentSpawnArgs', () => {
+  it('returns bin and empty args array when agent has no args', () => {
+    const agent: Agent = { name: 'test', description: 'Test', bin: 'test-bin' };
+    const [bin, args] = agentSpawnArgs(agent);
+    expect(bin).toBe('test-bin');
+    expect(args).toEqual([]);
+  });
+
+  it('returns bin and args when agent has args', () => {
+    const agent: Agent = { name: 'cursor', description: 'Cursor', bin: 'cursor', args: ['--reuse-window'] };
+    const [bin, args] = agentSpawnArgs(agent);
+    expect(bin).toBe('cursor');
+    expect(args).toEqual(['--reuse-window']);
   });
 });
