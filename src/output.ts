@@ -65,22 +65,33 @@ class NodeOutput implements Output {
       return diff > 0 ? s + ' '.repeat(diff) : s;
     };
 
-    const widths: Record<string, number> = {};
-    for (const key of keys) {
-      widths[key] = Math.max(
-        key.length,
-        ...rows.map(r => displayWidth(r[key] ?? '')),
-      );
-    }
+    // Column widths: add 2 for padding (1 space each side)
+    const colWidths: number[] = keys.map(k =>
+      Math.max(k.length, ...rows.map(r => displayWidth(r[k] ?? ''))) + 2,
+    );
 
-    // Header
-    const header = keys.map(k => `${BOLD}${padDisplay(k, widths[k]!)}${RESET}`).join('  ');
-    console.log(header);
-    console.log(keys.map(k => '─'.repeat(widths[k]!)).join('──'));
-    // Rows
-    for (const row of rows) {
-      console.log(keys.map(k => padDisplay(row[k] ?? '', widths[k]!)).join('  '));
+    // Build separators
+    const topSep    = '┌' + colWidths.map(w => '─'.repeat(w)).join('┬') + '┐';
+    const headSep  = '├' + colWidths.map(w => '─'.repeat(w)).join('┼') + '┤';
+    const rowSep   = '├' + colWidths.map(w => '─'.repeat(w)).join('┼') + '┤';
+    const bottomSep = '└' + colWidths.map(w => '─'.repeat(w)).join('┴') + '┘';
+
+    const renderRow = (data: string[], bold?: boolean): string => {
+      const cells = data.map((s, i) => {
+        const padded = ' ' + padDisplay(s, colWidths[i]! - 2) + ' ';
+        return bold ? `${BOLD}${padded}${RESET}` : padded;
+      });
+      return '│' + cells.join('│') + '│';
+    };
+
+    console.log(topSep);
+    console.log(renderRow(keys, true));
+    console.log(headSep);
+    for (let i = 0; i < rows.length; i++) {
+      if (i > 0) console.log(rowSep);
+      console.log(renderRow(keys.map(k => rows[i]![k] ?? '')));
     }
+    console.log(bottomSep);
   }
 }
 
